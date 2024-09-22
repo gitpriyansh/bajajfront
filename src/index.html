@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Postman JSON to form-data Converter</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
+    <style>
+        /* Custom styles */
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background-color: #22668D;
+            color: #FFFADD;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .footer {
+            background-color: #22668D;
+            color: #FFFADD;
+            text-align: center;
+            padding: 10px 0;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+
+        .text-area-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 80%;
+        }
+
+        .textarea {
+            width: 45%;
+            min-height: 65vh;
+        }
+
+        .separator-container {
+            margin: 0 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .link {
+            text-decoration: none;
+            color: #FFCC70;
+        }
+
+        .button-d {
+            background: #22668D;
+            color: #FFFADD;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Postman { JSON } to form-data</h1>
+    </div>
+    <div class="container">
+        <form class="pure-form text-area-container" id="jsonForm">
+            <textarea class="textarea pure-input-rounded jsonValues" placeholder="Copy your raw JSON body here"></textarea>
+            <div class="separator-container">
+                <button type="submit" class="button-d pure-button convert-json">Convert & Send</button>
+            </div>
+            <textarea class="textarea pure-input-rounded code formDataValues" placeholder="Your form-data will appear here" readonly></textarea>
+        </form>
+    </div>
+    <div class="footer">
+        Copyright &copy; 2022-2023 MIT by Dejan Cavic |
+        <a class="link" target="_blank" href="https://github.com/deki23/postman-json-to-form-data">Github</a>
+    </div>
+    <script>
+        function resolveObject(name, object) {
+            let stringToReturn = '';
+            for (const [key, value] of Object.entries(object)) {
+                if (value instanceof Object) {
+                    stringToReturn += resolveObject(`${name}[${key}]`, value);
+                    continue;
+                }
+                if (value instanceof Array) {
+                    stringToReturn += resolveArray(`${name}[${key}]`, value);
+                    continue;
+                }
+                stringToReturn += `${name}[${key}]:${value}\n`;
+            }
+            return stringToReturn;
+        }
+
+        function resolveArray(name, array) {
+            let stringToReturn = '';
+            array.forEach((value, index) => {
+                if (value instanceof Object) {
+                    stringToReturn += resolveObject(`${name}[${index}]`, value);
+                    return;
+                }
+                if (value instanceof Array) {
+                    stringToReturn += resolveArray(`${name}[${index}]`, value);
+                    return;
+                }
+                stringToReturn += `${name}[${index}]:${value}\n`;
+            });
+            return stringToReturn;
+        }
+
+        document.getElementById('jsonForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const button = e.target.querySelector('.convert-json');
+            button.textContent = 'Converting...';
+            
+            try {
+                const jsonValues = document.querySelector('.jsonValues').value;
+                const jsonObject = JSON.parse(jsonValues);
+                
+                // Prepare form data
+                const formData = new FormData();
+                for (const [key, value] of Object.entries(jsonObject)) {
+                    if (Array.isArray(value)) {
+                        value.forEach((v) => formData.append(`${key}[]`, v));
+                    } else {
+                        formData.append(key, value);
+                    }
+                }
+
+                // Send the form-data to your API
+                const response = await fetch('https://super-licorice-47b8e1.netlify.app/.netlify/functions/bfhl', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const result = await response.json();
+                document.querySelector('.formDataValues').value = JSON.stringify(result, null, 2);
+            } catch (err) {
+                console.error('Error:', err);
+                alert('Invalid JSON or other error occurred.');
+            } finally {
+                button.textContent = 'Convert & Send';
+            }
+        });
+    </script>
+</body>
+</html>
